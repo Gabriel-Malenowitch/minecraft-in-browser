@@ -1,8 +1,11 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js'
-import { buildChunkMesh } from './chunk-mesh'
+import { buildChunkMesh, meshesFromData, type ChunkMeshes } from './chunk-mesh'
+import type { ChunkMeshResult } from './chunk-mesh-core'
 import { getBlock, CHUNK_SIZE, CHUNK_HEIGHT } from './world-types'
+import { isSolid, BlockId, type BlockIdType } from './blocks'
 import { saveWorldChunks } from './memory'
+import { packChunk, unpackChunk } from './chunk-packing'
 
 const chunkWorker = new Worker(new URL('./chunk-worker.ts', import.meta.url), { type: 'module' })
 const worldGenWorker = new Worker(new URL('./world-generator-worker.ts', import.meta.url), {
@@ -28,9 +31,13 @@ const BREATH_AMPLITUDE = 0.02
 const BREATH_SPEED = 4.5
 const DOUBLE_TAP_MS = 350
 
+function isSolidForCollision(blockId: number): boolean {
+  return isSolid(blockId as BlockIdType) && blockId !== BlockId.GRASS
+}
+
 function findGroundY(chunks: Record<string, Uint8Array>, x: number, z: number): number {
   for (let by = CHUNK_HEIGHT - 1; by >= 0; by--) {
-    if (getBlock(chunks, x, by, z) > 0) {
+    if (isSolidForCollision(getBlock(chunks, x, by, z))) {
       return by + 1
     }
   }
@@ -53,7 +60,7 @@ function checkCollision(
   for (let by = minY; by <= maxY; by++) {
     for (let bx = minX; bx <= maxX; bx++) {
       for (let bz = minZ; bz <= maxZ; bz++) {
-        if (getBlock(chunks, bx, by, bz) > 0) {
+        if (isSolidForCollision(getBlock(chunks, bx, by, bz))) {
           return true
         }
       }
@@ -65,14 +72,7 @@ function checkCollision(
 function packChunksForWorker(chunks: Record<string, Uint8Array>): Record<string, string> {
   const packed: Record<string, string> = {}
   for (const [k, v] of Object.entries(chunks)) {
-    const len = Math.ceil(v.length / 8)
-    const p = new Uint8Array(len)
-    for (let i = 0; i < v.length; i++) {
-      if (v[i]) {
-        p[i >> 3] |= 1 << (i & 7)
-      }
-    }
-    packed[k] = btoa(String.fromCharCode.apply(null, Array.from(p)))
+    packed[k] = packChunk(v)
   }
   return packed
 }
@@ -115,26 +115,20 @@ export function createRenderer(
   let rebuildPending = false
   let worldGenPending = false
 
-  let chunkMesh = buildChunkMesh(worldChunks, { x: pos.x, y: pos.y, z: pos.z })
-  scene.add(chunkMesh)
+  let meshes: ChunkMeshes = buildChunkMesh(worldChunks, { x: pos.x, y: pos.y, z: pos.z })
+  scene.add(meshes.terrain)
+  scene.add(meshes.grass)
 
-  const applyMeshFromWorker = (
-    positions: Float32Array,
-    normals: Float32Array,
-    colors: Float32Array,
-  ): void => {
-    scene.remove(chunkMesh)
-    chunkMesh.geometry.dispose()
-    ;(chunkMesh.material as THREE.Material).dispose()
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    const material = new THREE.MeshLambertMaterial({ vertexColors: true })
-    chunkMesh = new THREE.Mesh(geometry, material)
-    chunkMesh.castShadow = true
-    chunkMesh.receiveShadow = true
-    scene.add(chunkMesh)
+  const applyMeshFromWorker = (result: ChunkMeshResult): void => {
+    scene.remove(meshes.terrain)
+    scene.remove(meshes.grass)
+    meshes.terrain.geometry.dispose()
+      ; (meshes.terrain.material as THREE.Material).dispose()
+    meshes.grass.geometry.dispose()
+      ; (meshes.grass.material as THREE.Material).dispose()
+    meshes = meshesFromData(result)
+    scene.add(meshes.terrain)
+    scene.add(meshes.grass)
   }
 
   const requestMeshRebuild = (): void => {
@@ -149,10 +143,8 @@ export function createRenderer(
     })
   }
 
-  chunkWorker.onmessage = (
-    e: MessageEvent<{ positions: Float32Array; normals: Float32Array; colors: Float32Array }>,
-  ) => {
-    applyMeshFromWorker(e.data.positions, e.data.normals, e.data.colors)
+  chunkWorker.onmessage = (e: MessageEvent<ChunkMeshResult>) => {
+    applyMeshFromWorker(e.data)
     rebuildPending = false
   }
 
@@ -164,16 +156,7 @@ export function createRenderer(
   ) => {
     const { newChunks, newBounds } = e.data
     for (const [k, v] of Object.entries(newChunks)) {
-      const binary = atob(v)
-      const packed = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) {
-        packed[i] = binary.charCodeAt(i)
-      }
-      const volume = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
-      for (let i = 0; i < volume.length; i++) {
-        volume[i] = (packed[i >> 3] >> (i & 7)) & 1
-      }
-      worldChunks[k] = volume
+      worldChunks[k] = unpackChunk(v)
     }
     bounds = newBounds
     saveWorldChunks(worldChunks, bounds.minCX, bounds.maxCX, bounds.minCZ, bounds.maxCZ)
@@ -341,7 +324,9 @@ export function createRenderer(
       const blockBelowY = Math.floor(pos.y - 0.01)
       if (
         blockBelowY >= 0 &&
-        getBlock(worldChunks, Math.floor(pos.x), blockBelowY, Math.floor(pos.z)) > 0
+        isSolidForCollision(
+          getBlock(worldChunks, Math.floor(pos.x), blockBelowY, Math.floor(pos.z)),
+        )
       ) {
         grounded = true
         vel.y = 0
@@ -376,7 +361,7 @@ export function createRenderer(
         requestMeshRebuild()
       }
       if ('requestIdleCallback' in window) {
-        ;(
+        ; (
           window as Window & { requestIdleCallback: (cb: () => void) => number }
         ).requestIdleCallback(schedule, { timeout: 100 })
       } else {

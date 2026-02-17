@@ -8,6 +8,10 @@ import {
   TERRAIN_SEED,
   createSeededRandom,
 } from './terrain-params'
+import { BlockId } from './blocks'
+import { packChunk } from './chunk-packing'
+
+const GRASS_CHANCE = 0.56
 
 function getIndex(x: number, y: number, z: number): number {
   return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
@@ -30,7 +34,29 @@ function generateChunk(
       )
 
       for (let y = 0; y < CHUNK_HEIGHT; y++) {
-        volume[getIndex(x, y, z)] = y <= height ? 1 : 0
+        if (y > height) {
+          volume[getIndex(x, y, z)] = BlockId.AIR
+        } else if (y === height) {
+          volume[getIndex(x, y, z)] = BlockId.GRASS_BLOCK
+        } else {
+          volume[getIndex(x, y, z)] = BlockId.DIRT
+        }
+      }
+    }
+  }
+
+  for (let x = 0; x < CHUNK_SIZE; x++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let y = 0; y < CHUNK_HEIGHT - 1; y++) {
+        const idx = getIndex(x, y, z)
+        if (volume[idx] === BlockId.GRASS_BLOCK && volume[getIndex(x, y + 1, z)] === BlockId.AIR) {
+          let h = (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + TERRAIN_SEED
+          h = Math.imul(h ^ (h >>> 13), 1274126177)
+          h = h ^ (h >>> 16)
+          if (((h >>> 0) % 1000) / 1000 < GRASS_CHANCE) {
+            volume[getIndex(x, y + 1, z)] = BlockId.GRASS
+          }
+        }
       }
     }
   }
@@ -89,8 +115,7 @@ self.onmessage = (
     const offsetX = cx * CHUNK_SIZE
     const offsetZ = cz * CHUNK_SIZE
     const volume = generateChunk(noise2D, offsetX, offsetZ)
-    const packed = packChunk(volume)
-    newChunks[key] = packed
+    newChunks[key] = packChunk(volume)
   }
 
   const newBounds = {
@@ -101,16 +126,4 @@ self.onmessage = (
   }
 
   self.postMessage({ newChunks, newBounds })
-}
-
-function packChunk(volume: Uint8Array): string {
-  const len = Math.ceil(volume.length / 8)
-  const packed = new Uint8Array(len)
-  for (let i = 0; i < volume.length; i++) {
-    if (volume[i]) {
-      packed[i >> 3] |= 1 << (i & 7)
-    }
-  }
-  const binary = String.fromCharCode.apply(null, Array.from(packed))
-  return btoa(binary)
 }

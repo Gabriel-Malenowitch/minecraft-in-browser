@@ -24,9 +24,9 @@ export function createLighting(scene: THREE.Scene): LightingSetup {
   sunLight.shadow.camera.right = 100
   sunLight.shadow.camera.top = 100
   sunLight.shadow.camera.bottom = -100
-  sunLight.shadow.bias = -0.0003
-  sunLight.shadow.normalBias = 0.02
-  ;(sunLight.shadow as { radius?: number }).radius = 3
+  sunLight.shadow.bias = -0.001
+  sunLight.shadow.normalBias = 0.06
+  ;(sunLight.shadow as { radius?: number }).radius = 5
   scene.add(sunLight)
 
   const moonLight = new THREE.DirectionalLight(0xaaccff, 0)
@@ -38,9 +38,9 @@ export function createLighting(scene: THREE.Scene): LightingSetup {
   moonLight.shadow.camera.right = 100
   moonLight.shadow.camera.top = 100
   moonLight.shadow.camera.bottom = -100
-  moonLight.shadow.bias = -0.0003
-  moonLight.shadow.normalBias = 0.02
-  ;(moonLight.shadow as { radius?: number }).radius = 3
+  moonLight.shadow.bias = -0.001
+  moonLight.shadow.normalBias = 0.06
+  ;(moonLight.shadow as { radius?: number }).radius = 5
   scene.add(moonLight)
   moonLight.target.position.set(0, 0, 0)
   scene.add(moonLight.target)

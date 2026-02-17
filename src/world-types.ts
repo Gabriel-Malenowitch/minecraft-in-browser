@@ -37,3 +37,17 @@ export function getBlock(chunks: Chunks, wx: number, wy: number, wz: number): nu
   const i = lx + lz * CHUNK_SIZE + ly * CHUNK_SIZE * CHUNK_SIZE
   return chunk[i] ?? 0
 }
+
+export function setBlock(chunks: Chunks, wx: number, wy: number, wz: number, blockId: number): boolean {
+  const [cx, cz] = getChunkCoords(wx, wz)
+  const key = chunkKey(cx, cz)
+  const chunk = chunks[key]
+  if (!chunk) return false
+  const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+  const ly = Math.floor(wy)
+  if (ly < 0 || ly >= CHUNK_HEIGHT) return false
+  const i = lx + lz * CHUNK_SIZE + ly * CHUNK_SIZE * CHUNK_SIZE
+  chunk[i] = blockId
+  return true
+}

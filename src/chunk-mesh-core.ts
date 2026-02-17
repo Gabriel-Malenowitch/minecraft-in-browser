@@ -1,7 +1,56 @@
 import { BLOCKS, BlockId, isRenderable, isTransparent } from './blocks'
 import { getTileUVs, TileId } from './texture-atlas'
 
-const RENDER_DISTANCE = 96
+export const RENDER_DISTANCE = 96
+export const SUB_CHUNK_SIZE = 8
+
+export function getChunkRange(center: { x: number; z: number }): {
+  minCX: number
+  maxCX: number
+  minCZ: number
+  maxCZ: number
+} {
+  const cx = center.x
+  const cz = center.z
+  return {
+    minCX: Math.floor((cx - RENDER_DISTANCE) / 32),
+    maxCX: Math.floor((cx + RENDER_DISTANCE) / 32),
+    minCZ: Math.floor((cz - RENDER_DISTANCE) / 32),
+    maxCZ: Math.floor((cz + RENDER_DISTANCE) / 32),
+  }
+}
+
+export function subChunkKey(sx: number, sy: number, sz: number): string {
+  return `${sx}_${sy}_${sz}`
+}
+
+export function getSubChunkCoords(wx: number, wy: number, wz: number): [number, number, number] {
+  return [
+    Math.floor(wx / SUB_CHUNK_SIZE),
+    Math.floor(wy / SUB_CHUNK_SIZE),
+    Math.floor(wz / SUB_CHUNK_SIZE),
+  ]
+}
+
+export function getSubChunkRange(center: { x: number; z: number }): {
+  minSX: number
+  maxSX: number
+  minSY: number
+  maxSY: number
+  minSZ: number
+  maxSZ: number
+} {
+  const cx = center.x
+  const cz = center.z
+  return {
+    minSX: Math.floor((cx - RENDER_DISTANCE) / SUB_CHUNK_SIZE),
+    maxSX: Math.floor((cx + RENDER_DISTANCE) / SUB_CHUNK_SIZE),
+    minSY: 0,
+    maxSY: Math.floor(31 / SUB_CHUNK_SIZE),
+    minSZ: Math.floor((cz - RENDER_DISTANCE) / SUB_CHUNK_SIZE),
+    maxSZ: Math.floor((cz + RENDER_DISTANCE) / SUB_CHUNK_SIZE),
+  }
+}
 
 const FACES: { v: number[][]; n: number[] }[] = [
   {
@@ -104,6 +153,11 @@ function buildGrassPlanes(w: number, h: number): { plane1: number[][]; plane2: n
   }
 }
 
+const TERRAIN_CAP_FULL = 4_000_000
+const GRASS_CAP_FULL = 1_000_000
+const TERRAIN_CAP_SUB = 60_000
+const GRASS_CAP_SUB = 40_000
+
 function buildMesh(
   getBlock: GetBlockFn,
   center: { x: number; y: number; z: number },
@@ -111,27 +165,27 @@ function buildMesh(
   maxX: number,
   minZ: number,
   maxZ: number,
+  minY = 0,
+  maxY = 32,
+  tCap = TERRAIN_CAP_FULL,
+  gCap = GRASS_CAP_FULL,
 ): ChunkMeshResult {
   const { x: cx, y: cy, z: cz } = center
   const maxDistSq = RENDER_DISTANCE * RENDER_DISTANCE
 
-  // Terrain buffers (positions: 3 floats, normals: 3 floats, uvs: 2 floats per vertex)
-  const tCap = 4_000_000
   const tPos = new Float32Array(tCap)
   const tNor = new Float32Array(tCap)
-  const tUv = new Float32Array((tCap / 3) * 2) // 2 floats per vertex
+  const tUv = new Float32Array((tCap / 3) * 2)
   let ti = 0
   let tui = 0
 
-  // Grass buffers
-  const gCap = 1_000_000
   const gPos = new Float32Array(gCap)
   const gNor = new Float32Array(gCap)
   const gUv = new Float32Array((gCap / 3) * 2)
   let gi = 0
   let gui = 0
 
-  for (let wy = 0; wy < 32; wy++) {
+  for (let wy = minY; wy < maxY; wy++) {
     for (let wz = minZ; wz < maxZ; wz++) {
       for (let wx = minX; wx < maxX; wx++) {
         const dx = wx + 0.5 - cx
@@ -266,11 +320,8 @@ function buildMesh(
   }
 }
 
-export function buildChunkMeshDataFromChunks(
-  chunks: Record<string, Uint8Array>,
-  center: { x: number; y: number; z: number },
-): ChunkMeshResult {
-  const getBlock = (wx: number, wy: number, wz: number): number => {
+function getBlockFromChunks(chunks: Record<string, Uint8Array>): GetBlockFn {
+  return (wx: number, wy: number, wz: number): number => {
     const cx = Math.floor(wx / 32)
     const cz = Math.floor(wz / 32)
     const key = `${cx}_${cz}`
@@ -286,6 +337,13 @@ export function buildChunkMeshDataFromChunks(
     }
     return chunk[lx + lz * 32 + ly * 32 * 32] ?? 0
   }
+}
+
+export function buildChunkMeshDataFromChunks(
+  chunks: Record<string, Uint8Array>,
+  center: { x: number; y: number; z: number },
+): ChunkMeshResult {
+  const getBlock = getBlockFromChunks(chunks)
   const cx = center.x
   const cz = center.z
   const minX = (cx - RENDER_DISTANCE) | 0
@@ -293,4 +351,46 @@ export function buildChunkMeshDataFromChunks(
   const minZ = (cz - RENDER_DISTANCE) | 0
   const maxZ = (cz + RENDER_DISTANCE + 1) | 0
   return buildMesh(getBlock, center, minX, maxX, minZ, maxZ)
+}
+
+export function buildChunkMeshDataForChunk(
+  chunks: Record<string, Uint8Array>,
+  chunkX: number,
+  chunkZ: number,
+  center: { x: number; y: number; z: number },
+): ChunkMeshResult {
+  const getBlock = getBlockFromChunks(chunks)
+  const minX = chunkX * 32
+  const maxX = minX + 32
+  const minZ = chunkZ * 32
+  const maxZ = minZ + 32
+  return buildMesh(getBlock, center, minX, maxX, minZ, maxZ)
+}
+
+export function buildSubChunkMeshData(
+  chunks: Record<string, Uint8Array>,
+  sx: number,
+  sy: number,
+  sz: number,
+  center: { x: number; y: number; z: number },
+): ChunkMeshResult {
+  const getBlock = getBlockFromChunks(chunks)
+  const minX = sx * SUB_CHUNK_SIZE
+  const maxX = minX + SUB_CHUNK_SIZE
+  const minY = sy * SUB_CHUNK_SIZE
+  const maxY = minY + SUB_CHUNK_SIZE
+  const minZ = sz * SUB_CHUNK_SIZE
+  const maxZ = minZ + SUB_CHUNK_SIZE
+  return buildMesh(
+    getBlock,
+    center,
+    minX,
+    maxX,
+    minZ,
+    maxZ,
+    minY,
+    maxY,
+    TERRAIN_CAP_SUB,
+    GRASS_CAP_SUB,
+  )
 }

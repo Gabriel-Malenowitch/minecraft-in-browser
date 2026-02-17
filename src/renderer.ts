@@ -1,17 +1,22 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js'
-import { buildChunkMesh, meshesFromData, type ChunkMeshes } from './chunk-mesh'
+import { meshesFromData, type ChunkMeshes } from './chunk-mesh'
 import { createLighting, updateLighting, updateGrassWind } from './shaders'
-import type { ChunkMeshResult } from './chunk-mesh-core'
-import { getBlock, CHUNK_SIZE, CHUNK_HEIGHT } from './world-types'
+import {
+  buildSubChunkMeshData,
+  getSubChunkCoords,
+  getSubChunkRange,
+  subChunkKey,
+  SUB_CHUNK_SIZE,
+} from './chunk-mesh-core'
+import { getBlock, setBlock, chunkKey, CHUNK_SIZE, CHUNK_HEIGHT } from './world-types'
 import { isSolid, BlockId, type BlockIdType } from './blocks'
 import { saveWorldChunks } from './memory'
-import { packChunk, unpackChunk } from './chunk-packing'
+import { unpackChunk } from './chunk-packing'
 import { createHUD } from './hud'
 import { createBlockHighlight } from './block-highlight'
 import { createPlayerHand } from './player-hand'
 
-const chunkWorker = new Worker(new URL('./chunk-worker.ts', import.meta.url), { type: 'module' })
 const worldGenWorker = new Worker(new URL('./world-generator-worker.ts', import.meta.url), {
   type: 'module',
 })
@@ -83,14 +88,6 @@ function checkCollision(
   return false
 }
 
-function packChunksForWorker(chunks: Record<string, Uint8Array>): Record<string, string> {
-  const packed: Record<string, string> = {}
-  for (const [k, v] of Object.entries(chunks)) {
-    packed[k] = packChunk(v)
-  }
-  return packed
-}
-
 export function createRenderer(
   canvas: HTMLCanvasElement,
   chunks: Record<string, Uint8Array>,
@@ -130,20 +127,71 @@ export function createRenderer(
   let rebuildPending = false
   let worldGenPending = false
 
-  let meshes: ChunkMeshes = buildChunkMesh(worldChunks, { x: pos.x, y: pos.y, z: pos.z })
-  scene.add(meshes.terrain)
-  scene.add(meshes.grass)
+  const terrainGroup = new THREE.Group()
+  const grassGroup = new THREE.Group()
+  scene.add(terrainGroup)
+  scene.add(grassGroup)
+  const subChunkMeshes = new Map<string, ChunkMeshes>()
 
-  const applyMeshFromWorker = (result: ChunkMeshResult): void => {
-    scene.remove(meshes.terrain)
-    scene.remove(meshes.grass)
-    meshes.terrain.geometry.dispose()
-      ; (meshes.terrain.material as THREE.Material).dispose()
-    meshes.grass.geometry.dispose()
-      ; (meshes.grass.material as THREE.Material).dispose()
-    meshes = meshesFromData(result)
-    scene.add(meshes.terrain)
-    scene.add(meshes.grass)
+  const center = (): { x: number; y: number; z: number } => ({
+    x: pos.x,
+    y: pos.y,
+    z: pos.z,
+  })
+
+  const disposeChunkMeshes = (m: ChunkMeshes): void => {
+    m.terrain.geometry.dispose()
+    ;(m.terrain.material as THREE.Material).dispose()
+    m.grass.geometry.dispose()
+    ;(m.grass.material as THREE.Material).dispose()
+  }
+
+  const chunkExistsForSubChunk = (sx: number, sz: number): boolean => {
+    const cx = Math.floor((sx * SUB_CHUNK_SIZE) / CHUNK_SIZE)
+    const cz = Math.floor((sz * SUB_CHUNK_SIZE) / CHUNK_SIZE)
+    return !!worldChunks[chunkKey(cx, cz)]
+  }
+
+  const rebuildSubChunk = (sx: number, sy: number, sz: number): void => {
+    const key = subChunkKey(sx, sy, sz)
+    const old = subChunkMeshes.get(key)
+    if (old) {
+      terrainGroup.remove(old.terrain)
+      grassGroup.remove(old.grass)
+      disposeChunkMeshes(old)
+    }
+    const result = buildSubChunkMeshData(worldChunks, sx, sy, sz, center())
+    const m = meshesFromData(result)
+    subChunkMeshes.set(key, m)
+    terrainGroup.add(m.terrain)
+    grassGroup.add(m.grass)
+  }
+
+  const rebuildAllChunks = (): void => {
+    const range = getSubChunkRange(center())
+    const keysToBuild: string[] = []
+    for (let sy = range.minSY; sy <= range.maxSY; sy++) {
+      for (let sz = range.minSZ; sz <= range.maxSZ; sz++) {
+        for (let sx = range.minSX; sx <= range.maxSX; sx++) {
+          if (chunkExistsForSubChunk(sx, sz)) {
+            keysToBuild.push(subChunkKey(sx, sy, sz))
+          }
+        }
+      }
+    }
+    for (const key of subChunkMeshes.keys()) {
+      if (!keysToBuild.includes(key)) {
+        const m = subChunkMeshes.get(key)!
+        terrainGroup.remove(m.terrain)
+        grassGroup.remove(m.grass)
+        disposeChunkMeshes(m)
+        subChunkMeshes.delete(key)
+      }
+    }
+    for (const key of keysToBuild) {
+      const [sx, sy, sz] = key.split('_').map(Number)
+      rebuildSubChunk(sx, sy, sz)
+    }
   }
 
   const requestMeshRebuild = (): void => {
@@ -151,17 +199,41 @@ export function createRenderer(
       return
     }
     rebuildPending = true
-    const packed = packChunksForWorker(worldChunks)
-    chunkWorker.postMessage({
-      chunks: packed,
-      center: { x: pos.x, y: pos.y, z: pos.z },
+    requestAnimationFrame(() => {
+      rebuildAllChunks()
+      rebuildPending = false
     })
   }
 
-  chunkWorker.onmessage = (e: MessageEvent<ChunkMeshResult>) => {
-    applyMeshFromWorker(e.data)
-    rebuildPending = false
+  const getAffectedSubChunkKeys = (wx: number, wy: number, wz: number): string[] => {
+    const keys = new Set<string>()
+    const [sx, sy, sz] = getSubChunkCoords(wx, wy, wz)
+    const neighbors: [number, number, number][] = [
+      [sx, sy, sz],
+      [sx - 1, sy, sz],
+      [sx + 1, sy, sz],
+      [sx, sy - 1, sz],
+      [sx, sy + 1, sz],
+      [sx, sy, sz - 1],
+      [sx, sy, sz + 1],
+    ]
+    for (const [nsx, nsy, nsz] of neighbors) {
+      if (nsy >= 0 && nsy <= 3 && chunkExistsForSubChunk(nsx, nsz)) {
+        keys.add(subChunkKey(nsx, nsy, nsz))
+      }
+    }
+    return [...keys]
   }
+
+  const scheduleBlockEditRebuild = (wx: number, wy: number, wz: number): void => {
+    const keys = getAffectedSubChunkKeys(wx, wy, wz)
+    for (const key of keys) {
+      const [sx, sy, sz] = key.split('_').map(Number)
+      rebuildSubChunk(sx, sy, sz)
+    }
+  }
+
+  rebuildAllChunks()
 
   worldGenWorker.onmessage = (
     e: MessageEvent<{
@@ -336,6 +408,54 @@ export function createRenderer(
     }
   })
 
+  // ── Block break / place ──
+  canvas.addEventListener('mousedown', (e) => {
+    if (!controls.isLocked) {
+      return
+    }
+    const target = blockHighlight.getTarget()
+    if (!target) {
+      return
+    }
+
+    let changed = false
+    let editX = 0
+    let editY = 0
+    let editZ = 0
+    if (e.button === 0) {
+      changed = setBlock(worldChunks, target.x, target.y, target.z, BlockId.AIR)
+      if (changed && getBlock(worldChunks, target.x, target.y + 1, target.z) === BlockId.GRASS) {
+        setBlock(worldChunks, target.x, target.y + 1, target.z, BlockId.AIR)
+        scheduleBlockEditRebuild(target.x, target.y + 1, target.z)
+      }
+      editX = target.x
+      editY = target.y
+      editZ = target.z
+    } else if (e.button === 2) {
+      const blockId = hud.getSelectedBlockId()
+      if (blockId !== null && blockId !== BlockId.AIR && blockId !== BlockId.GRASS) {
+        changed = setBlock(worldChunks, target.nx, target.ny, target.nz, blockId)
+        editX = target.nx
+        editY = target.ny
+        editZ = target.nz
+      }
+    }
+    if (!changed) {
+      return
+    }
+
+    saveWorldChunks(worldChunks, bounds.minCX, bounds.maxCX, bounds.minCZ, bounds.maxCZ)
+    scheduleBlockEditRebuild(editX, editY, editZ)
+  })
+
+  const saveOnUnload = (): void => {
+    saveWorldChunks(worldChunks, bounds.minCX, bounds.maxCX, bounds.minCZ, bounds.maxCZ)
+  }
+  window.addEventListener('beforeunload', saveOnUnload)
+  window.addEventListener('pagehide', saveOnUnload)
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()
@@ -462,7 +582,7 @@ export function createRenderer(
         requestMeshRebuild()
       }
       if ('requestIdleCallback' in window) {
-        ; (
+        ;(
           window as Window & { requestIdleCallback: (cb: () => void) => number }
         ).requestIdleCallback(schedule, { timeout: 100 })
       } else {
@@ -493,9 +613,11 @@ export function createRenderer(
     const lightX = sunX + noonOffset
     const lightZ = pos.z
 
-    const grassMat = meshes.grass.material
-    if (grassMat && !Array.isArray(grassMat)) {
-      updateGrassWind(grassMat)
+    for (const m of subChunkMeshes.values()) {
+      const grassMat = m.grass.material
+      if (grassMat && !Array.isArray(grassMat)) {
+        updateGrassWind(grassMat)
+      }
     }
 
     sunPosVec.set(lightX, sunY, lightZ)

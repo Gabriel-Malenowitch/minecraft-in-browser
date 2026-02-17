@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import { buildChunkMeshDataFromChunks, type ChunkMeshResult, type MeshData } from './chunk-mesh-core'
 import { buildAtlasCanvas } from './texture-atlas'
-
-/* ── Texture atlas (shared singleton) ────────────────────── */
+import { createTerrainMaterial, createGrassMaterial } from './shaders'
 
 let atlasTexture: THREE.CanvasTexture | null = null
 
@@ -18,33 +17,12 @@ function getAtlasTexture(): THREE.CanvasTexture {
   return atlasTexture
 }
 
-/* ── Geometry builder helper ────────────────────────────── */
-
 function buildGeometry(data: MeshData): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3))
   geo.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2))
   return geo
-}
-
-/* ── Terrain material (opaque) ───────────────────────────── */
-
-function createTerrainMaterial(): THREE.MeshLambertMaterial {
-  return new THREE.MeshLambertMaterial({
-    map: getAtlasTexture(),
-  })
-}
-
-/* ── Grass material (alpha-tested, double-sided) ─────────── */
-
-function createGrassMaterial(): THREE.MeshLambertMaterial {
-  return new THREE.MeshLambertMaterial({
-    map: getAtlasTexture(),
-    alphaTest: 0.5,
-    side: THREE.DoubleSide,
-    transparent: false,
-  })
 }
 
 /* ── Public API ──────────────────────────────────────────── */
@@ -63,14 +41,15 @@ export function buildChunkMesh(
 }
 
 export function meshesFromData(result: ChunkMeshResult): ChunkMeshes {
+  const atlas = getAtlasTexture()
   const terrainGeo = buildGeometry(result.terrain)
-  const terrainMat = createTerrainMaterial()
+  const terrainMat = createTerrainMaterial(atlas)
   const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat)
   terrainMesh.castShadow = true
   terrainMesh.receiveShadow = true
 
   const grassGeo = buildGeometry(result.grass)
-  const grassMat = createGrassMaterial()
+  const grassMat = createGrassMaterial(atlas)
   const grassMesh = new THREE.Mesh(grassGeo, grassMat)
   grassMesh.receiveShadow = true
 

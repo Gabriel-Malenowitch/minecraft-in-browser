@@ -10,6 +10,7 @@ import {
 } from './terrain-params'
 import { BlockId } from './blocks'
 import { packChunk } from './chunk-packing'
+import { placeTrees } from './tree-generation'
 
 const GRASS_CHANCE = 0.56
 
@@ -60,6 +61,9 @@ function generateChunk(
       }
     }
   }
+
+  placeTrees(volume, offsetX, offsetZ)
+
   return volume
 }
 

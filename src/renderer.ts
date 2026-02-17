@@ -16,6 +16,7 @@ import { unpackChunk } from './chunk-packing'
 import { createHUD } from './hud'
 import { createBlockHighlight } from './block-highlight'
 import { createPlayerHand } from './player-hand'
+import { createMobileControls } from './mobile-controls'
 
 const worldGenWorker = new Worker(new URL('./world-generator-worker.ts', import.meta.url), {
   type: 'module',
@@ -270,6 +271,56 @@ export function createRenderer(
   const hud = createHUD()
   document.getElementById('app')!.appendChild(hud.el)
 
+  const euler = new THREE.Euler(0, 0, 0, 'YXZ')
+  const onLookDelta = (dx: number, dy: number): void => {
+    euler.setFromQuaternion(camera.quaternion)
+    euler.y -= dx * 0.002
+    euler.x -= dy * 0.002
+    euler.x = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, euler.x))
+    camera.quaternion.setFromEuler(euler)
+  }
+
+  const doBreak = (): void => {
+    const target = blockHighlight.getTarget()
+    if (!target) {
+      return
+    }
+    const changed = setBlock(worldChunks, target.x, target.y, target.z, BlockId.AIR)
+    if (!changed) {
+      return
+    }
+    if (getBlock(worldChunks, target.x, target.y + 1, target.z) === BlockId.GRASS) {
+      setBlock(worldChunks, target.x, target.y + 1, target.z, BlockId.AIR)
+      scheduleBlockEditRebuild(target.x, target.y + 1, target.z)
+    }
+    saveWorldChunks(worldChunks, bounds.minCX, bounds.maxCX, bounds.minCZ, bounds.maxCZ)
+    scheduleBlockEditRebuild(target.x, target.y, target.z)
+  }
+
+  const doPlace = (): void => {
+    const target = blockHighlight.getTarget()
+    if (!target) {
+      return
+    }
+    const blockId = hud.getSelectedBlockId()
+    if (blockId === null || blockId === BlockId.AIR || blockId === BlockId.GRASS) {
+      return
+    }
+    const changed = setBlock(worldChunks, target.nx, target.ny, target.nz, blockId)
+    if (!changed) {
+      return
+    }
+    saveWorldChunks(worldChunks, bounds.minCX, bounds.maxCX, bounds.minCZ, bounds.maxCZ)
+    scheduleBlockEditRebuild(target.nx, target.ny, target.nz)
+  }
+
+  const mobileControls = createMobileControls({
+    onBreak: doBreak,
+    onPlace: doPlace,
+    onLookDelta,
+  })
+  document.getElementById('app')!.appendChild(mobileControls.el)
+
   // ── Block highlight ──
   const blockHighlight = createBlockHighlight(scene)
 
@@ -413,39 +464,11 @@ export function createRenderer(
     if (!controls.isLocked) {
       return
     }
-    const target = blockHighlight.getTarget()
-    if (!target) {
-      return
-    }
-
-    let changed = false
-    let editX = 0
-    let editY = 0
-    let editZ = 0
     if (e.button === 0) {
-      changed = setBlock(worldChunks, target.x, target.y, target.z, BlockId.AIR)
-      if (changed && getBlock(worldChunks, target.x, target.y + 1, target.z) === BlockId.GRASS) {
-        setBlock(worldChunks, target.x, target.y + 1, target.z, BlockId.AIR)
-        scheduleBlockEditRebuild(target.x, target.y + 1, target.z)
-      }
-      editX = target.x
-      editY = target.y
-      editZ = target.z
+      doBreak()
     } else if (e.button === 2) {
-      const blockId = hud.getSelectedBlockId()
-      if (blockId !== null && blockId !== BlockId.AIR && blockId !== BlockId.GRASS) {
-        changed = setBlock(worldChunks, target.nx, target.ny, target.nz, blockId)
-        editX = target.nx
-        editY = target.ny
-        editZ = target.nz
-      }
+      doPlace()
     }
-    if (!changed) {
-      return
-    }
-
-    saveWorldChunks(worldChunks, bounds.minCX, bounds.maxCX, bounds.minCZ, bounds.maxCZ)
-    scheduleBlockEditRebuild(editX, editY, editZ)
   })
 
   const saveOnUnload = (): void => {

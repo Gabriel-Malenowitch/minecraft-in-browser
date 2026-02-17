@@ -13,12 +13,18 @@ body {
   overflow: hidden;
   font-family: 'Press Start 2P', monospace;
   image-rendering: pixelated;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app {
   width: 100%;
   height: 100%;
   position: relative;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ── Dirt background ───────────────────────────────── */
@@ -56,6 +62,7 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
 }
 
 /* ── Menu layout ───────────────────────────────────── */
@@ -331,4 +338,125 @@ canvas {
   color: rgba(255, 255, 255, 0.35);
   user-select: none;
   pointer-events: none;
+}
+
+/* ── Mobile controls ─────────────────────────────────────── */
+.mobile-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.mobile-controls.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.mobile-controls.visible > * {
+  pointer-events: auto;
+}
+
+.mobile-controls .mobile-look-zone {
+  flex: 1;
+  min-height: 120px;
+}
+
+.mobile-controls .mobile-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 12px;
+  padding-bottom: 80px;
+}
+
+.mobile-arrows {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  width: 120px;
+  height: 120px;
+}
+
+.mobile-arrow-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.mobile-arrow-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.mobile-arrow-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.mobile-arrow-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.mobile-arrow {
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 20px;
+  font-family: 'Press Start 2P', monospace;
+  color: #e0e0e0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-arrow:active {
+  background: rgba(80, 80, 80, 0.7);
+}
+
+.mobile-action {
+  min-width: 56px;
+  min-height: 56px;
+  font-size: 8px;
+  font-family: 'Press Start 2P', monospace;
+  color: #e0e0e0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #555;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.3;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-action:active {
+  background: rgba(80, 80, 80, 0.7);
+}
+
+.mobile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-end;
+}
+
+.mobile-look-zone {
+  touch-action: none;
 }

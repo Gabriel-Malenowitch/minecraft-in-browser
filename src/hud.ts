@@ -66,6 +66,7 @@ export function createHUD(): HUD {
         num.textContent = String(i + 1)
         slot.appendChild(num)
 
+        slot.addEventListener('click', () => setSelectedSlot(i))
         slots.push(slot)
         hotbar.appendChild(slot)
     }

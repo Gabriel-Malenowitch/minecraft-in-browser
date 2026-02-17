@@ -1,13 +1,20 @@
 import './style.css'
+import { createRenderer } from './renderer'
+import { buildChunkMesh } from './chunk-mesh'
+import { mapData, CHUNK_SIZE, CHUNK_HEIGHT } from './gauss-example'
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement
 
-canvas.width = window.innerWidth
-canvas.height = window.innerHeight
+const { scene, animate } = createRenderer(canvas)
 
-window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
-})
+const render = (): void => {
+  // Test render
+  const chunkMesh = buildChunkMesh(mapData, CHUNK_SIZE, CHUNK_HEIGHT)
+  scene.add(chunkMesh)
 
-console.log('Minecraft - ready!')
+  // PROD
+  // Codigo real do programa vai ser escrito aqui
+}
+
+render()
+animate()

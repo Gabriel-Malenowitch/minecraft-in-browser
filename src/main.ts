@@ -11,7 +11,7 @@ const menuContainer = document.getElementById('menu-container') as HTMLDivElemen
 function startGame(volume: Uint8Array, chunkSize: number, chunkHeight: number): void {
   menuContainer.classList.add('hidden')
   const chunkMesh = buildChunkMesh(volume, chunkSize, chunkHeight)
-  const { scene, animate } = createRenderer(canvas)
+  const { scene, animate } = createRenderer(canvas, volume, chunkSize, chunkHeight)
   scene.add(chunkMesh)
   animate()
 }

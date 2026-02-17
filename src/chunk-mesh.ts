@@ -6,7 +6,7 @@ const COLORS = {
   side: new THREE.Color(0x8b6914),
 }
 
-function getIndex(x: number, y: number, z: number, chunkSize: number, chunkHeight: number): number {
+function getIndex(x: number, y: number, z: number, chunkSize: number): number {
   return x + z * chunkSize + y * chunkSize * chunkSize
 }
 
@@ -21,7 +21,7 @@ function isSolid(
   if (x < 0 || x >= chunkSize || y < 0 || y >= chunkHeight || z < 0 || z >= chunkSize) {
     return false
   }
-  return volume[getIndex(x, y, z, chunkSize, chunkHeight)] > 0
+  return volume[getIndex(x, y, z, chunkSize)] > 0
 }
 
 interface Face {
@@ -170,5 +170,8 @@ export function buildChunkMesh(
     vertexColors: true,
   })
 
-  return new THREE.Mesh(geometry, material)
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  return mesh
 }

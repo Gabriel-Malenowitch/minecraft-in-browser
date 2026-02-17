@@ -1,7 +1,7 @@
 import './style.css'
 import { createRenderer } from './renderer'
 import { buildChunkMesh } from './chunk-mesh'
-import { mapData, CHUNK_SIZE, CHUNK_HEIGHT } from './gauss-example'
+import { mapData, CHUNK_SIZE, CHUNK_HEIGHT } from './world-generator'
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement
 

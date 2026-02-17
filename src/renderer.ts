@@ -7,6 +7,9 @@ import { getBlock, CHUNK_SIZE, CHUNK_HEIGHT } from './world-types'
 import { isSolid, BlockId, type BlockIdType } from './blocks'
 import { saveWorldChunks } from './memory'
 import { packChunk, unpackChunk } from './chunk-packing'
+import { createHUD } from './hud'
+import { createBlockHighlight } from './block-highlight'
+import { createPlayerHand } from './player-hand'
 
 const chunkWorker = new Worker(new URL('./chunk-worker.ts', import.meta.url), { type: 'module' })
 const worldGenWorker = new Worker(new URL('./world-generator-worker.ts', import.meta.url), {
@@ -135,9 +138,9 @@ export function createRenderer(
     scene.remove(meshes.terrain)
     scene.remove(meshes.grass)
     meshes.terrain.geometry.dispose()
-    ;(meshes.terrain.material as THREE.Material).dispose()
+      ; (meshes.terrain.material as THREE.Material).dispose()
     meshes.grass.geometry.dispose()
-    ;(meshes.grass.material as THREE.Material).dispose()
+      ; (meshes.grass.material as THREE.Material).dispose()
     meshes = meshesFromData(result)
     scene.add(meshes.terrain)
     scene.add(meshes.grass)
@@ -190,6 +193,17 @@ export function createRenderer(
 
   const lighting = createLighting(scene)
   const { sunLight } = lighting
+
+  // ── HUD ──
+  const hud = createHUD()
+  document.getElementById('app')!.appendChild(hud.el)
+
+  // ── Block highlight ──
+  const blockHighlight = createBlockHighlight(scene)
+
+  // ── Player hand (attached to camera) ──
+  scene.add(camera)
+  const playerHand = createPlayerHand(camera)
 
   const sunSize = 16
   const sunGeometry = new THREE.PlaneGeometry(sunSize, sunSize)
@@ -448,7 +462,7 @@ export function createRenderer(
         requestMeshRebuild()
       }
       if ('requestIdleCallback' in window) {
-        ;(
+        ; (
           window as Window & { requestIdleCallback: (cb: () => void) => number }
         ).requestIdleCallback(schedule, { timeout: 100 })
       } else {
@@ -515,6 +529,10 @@ export function createRenderer(
       const cloud = cloudsGroup.children[i] as THREE.Group
       cloud.position.set(cloudOffsets[i].x, 0, cloudOffsets[i].z)
     }
+
+    // ── HUD updates ──
+    blockHighlight.update(camera, worldChunks)
+    playerHand.update(hud.getSelectedBlockId(), performance.now())
 
     renderer.render(scene, camera)
   }

@@ -51,7 +51,8 @@ function generateChunk(
       for (let y = 0; y < CHUNK_HEIGHT - 1; y++) {
         const idx = getIndex(x, y, z)
         if (volume[idx] === BlockId.GRASS_BLOCK && volume[getIndex(x, y + 1, z)] === BlockId.AIR) {
-          let h = (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + TERRAIN_SEED
+          let h =
+            (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + TERRAIN_SEED
           h = Math.imul(h ^ (h >>> 13), 1274126177)
           h = h ^ (h >>> 16)
           if (((h >>> 0) % 1000) / 1000 < GRASS_CHANCE) {

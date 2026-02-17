@@ -251,3 +251,84 @@ canvas {
   text-shadow: 1px 1px 0 #000;
   z-index: 20;
 }
+
+/* ── Game HUD ─────────────────────────────────────── */
+#game-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+/* Crosshair */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-family: monospace;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8), 1px 1px 0 rgba(0, 0, 0, 0.5);
+  line-height: 1;
+  user-select: none;
+}
+
+/* Hotbar */
+.hotbar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid #444;
+  border-radius: 2px;
+  image-rendering: pixelated;
+  pointer-events: auto;
+}
+
+.hotbar-slot {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  background: rgba(80, 80, 80, 0.6);
+  border: 2px solid #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.1s;
+}
+
+.hotbar-slot.active {
+  border-color: #eee;
+  box-shadow:
+    0 0 4px rgba(255, 255, 255, 0.6),
+    inset 0 0 3px rgba(255, 255, 255, 0.15);
+  background: rgba(120, 120, 120, 0.5);
+}
+
+.hotbar-slot:hover:not(.active) {
+  border-color: #888;
+}
+
+.hotbar-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+
+.hotbar-number {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 7px;
+  font-family: 'Press Start 2P', monospace;
+  color: rgba(255, 255, 255, 0.35);
+  user-select: none;
+  pointer-events: none;
+}

@@ -32,5 +32,3 @@ export function generateChunk(offsetX = 0, offsetZ = 0): Uint8Array {
 
   return volume
 }
-
-export const mapData = generateChunk()

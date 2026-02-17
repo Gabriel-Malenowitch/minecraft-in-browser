@@ -1,6 +1,5 @@
 import './style.css'
 import { createRenderer } from './renderer'
-import { buildChunkMesh } from './chunk-mesh'
 import { generateChunk, CHUNK_SIZE, CHUNK_HEIGHT } from './world-generator'
 import { createMenu } from './menu'
 import { setMemory, getWorldData, saveWorldData, DEFAULT_WORLD_NAME } from './memory'
@@ -10,9 +9,7 @@ const menuContainer = document.getElementById('menu-container') as HTMLDivElemen
 
 function startGame(volume: Uint8Array, chunkSize: number, chunkHeight: number): void {
   menuContainer.classList.add('hidden')
-  const chunkMesh = buildChunkMesh(volume, chunkSize, chunkHeight)
-  const { scene, animate } = createRenderer(canvas, volume, chunkSize, chunkHeight)
-  scene.add(chunkMesh)
+  const { animate } = createRenderer(canvas, volume, chunkSize, chunkHeight)
   animate()
 }
 

@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js'
+import { buildChunkMesh } from './chunk-mesh'
+
+const chunkWorker = new Worker(new URL('./chunk-worker.ts', import.meta.url), { type: 'module' })
 
 export interface RendererContext {
   scene: THREE.Scene
@@ -15,7 +18,7 @@ const JUMP_FORCE = 0.35
 const PLAYER_HEIGHT = 2
 const PLAYER_WIDTH = 0.8
 const BREATH_AMPLITUDE = 0.02
-const BREATH_SPEED = 6
+const BREATH_SPEED = 4.5
 
 function getIndex(x: number, y: number, z: number, chunkSize: number): number {
   return x + z * chunkSize + y * chunkSize * chunkSize
@@ -101,6 +104,39 @@ export function createRenderer(
   const vel = { x: 0, y: 0, z: 0 }
   let grounded = false
 
+  const REBUILD_THRESHOLD = 32
+  let lastRebuildX = pos.x
+  let lastRebuildZ = pos.z
+  let rebuildPending = false
+  let chunkMesh = buildChunkMesh(volume, chunkSize, chunkHeight, { x: pos.x, y: pos.y, z: pos.z })
+  scene.add(chunkMesh)
+
+  const applyMeshFromWorker = (
+    positions: Float32Array,
+    normals: Float32Array,
+    colors: Float32Array,
+  ): void => {
+    scene.remove(chunkMesh)
+    chunkMesh.geometry.dispose()
+    ;(chunkMesh.material as THREE.Material).dispose()
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    const material = new THREE.MeshLambertMaterial({ vertexColors: true })
+    chunkMesh = new THREE.Mesh(geometry, material)
+    chunkMesh.castShadow = true
+    chunkMesh.receiveShadow = true
+    scene.add(chunkMesh)
+  }
+
+  chunkWorker.onmessage = (
+    e: MessageEvent<{ positions: Float32Array; normals: Float32Array; colors: Float32Array }>,
+  ) => {
+    applyMeshFromWorker(e.data.positions, e.data.normals, e.data.colors)
+    rebuildPending = false
+  }
+
   camera.position.set(pos.x, pos.y + PLAYER_HEIGHT, pos.z)
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -115,7 +151,7 @@ export function createRenderer(
   const sunLight = new THREE.DirectionalLight(0xffeedd, 0.9)
   sunLight.position.set(-300, 100, 40)
   sunLight.castShadow = true
-  sunLight.shadow.mapSize.set(2048, 2048)
+  sunLight.shadow.mapSize.set(1024, 1024)
   sunLight.shadow.camera.near = 0.5
   sunLight.shadow.camera.far = 300
   sunLight.shadow.camera.left = -80
@@ -162,81 +198,105 @@ export function createRenderer(
 
   const animate = (): void => {
     requestAnimationFrame(animate)
-    if (controls.isLocked) {
-      controls.getDirection(dir)
-      dir.y = 0
-      dir.normalize()
+    controls.getDirection(dir)
+    dir.y = 0
+    dir.normalize()
 
-      vel.x = 0
-      vel.z = 0
-      if (keys.keyw) {
-        vel.x += dir.x
-        vel.z += dir.z
-      }
-      if (keys.keys) {
-        vel.x -= dir.x
-        vel.z -= dir.z
-      }
-      if (keys.keya) {
-        vel.x += dir.z
-        vel.z -= dir.x
-      }
-      if (keys.keyd) {
-        vel.x -= dir.z
-        vel.z += dir.x
-      }
-      if (vel.x !== 0 || vel.z !== 0) {
-        const len = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
-        vel.x = (vel.x / len) * MOVE_SPEED
-        vel.z = (vel.z / len) * MOVE_SPEED
-      }
+    vel.x = 0
+    vel.z = 0
+    if (keys.keyw) {
+      vel.x += dir.x
+      vel.z += dir.z
+    }
+    if (keys.keys) {
+      vel.x -= dir.x
+      vel.z -= dir.z
+    }
+    if (keys.keya) {
+      vel.x += dir.z
+      vel.z -= dir.x
+    }
+    if (keys.keyd) {
+      vel.x -= dir.z
+      vel.z += dir.x
+    }
+    if (vel.x !== 0 || vel.z !== 0) {
+      const len = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+      vel.x = (vel.x / len) * MOVE_SPEED
+      vel.z = (vel.z / len) * MOVE_SPEED
+    }
 
-      if (keys.space && grounded) {
-        vel.y = JUMP_FORCE
-        grounded = false
-      }
+    if (keys.space && grounded) {
+      vel.y = JUMP_FORCE
+      grounded = false
+    }
 
-      if (!grounded) {
-        vel.y -= GRAVITY
-      }
+    if (!grounded) {
+      vel.y -= GRAVITY
+    }
 
-      pos.x += vel.x
-      if (checkCollision(volume, chunkSize, chunkHeight, pos.x, pos.y, pos.z)) {
-        pos.x -= vel.x
-      }
+    pos.x += vel.x
+    if (checkCollision(volume, chunkSize, chunkHeight, pos.x, pos.y, pos.z)) {
+      pos.x -= vel.x
+    }
 
-      pos.z += vel.z
-      if (checkCollision(volume, chunkSize, chunkHeight, pos.x, pos.y, pos.z)) {
-        pos.z -= vel.z
-      }
+    pos.z += vel.z
+    if (checkCollision(volume, chunkSize, chunkHeight, pos.x, pos.y, pos.z)) {
+      pos.z -= vel.z
+    }
 
-      const newY = pos.y + vel.y
-      if (checkCollision(volume, chunkSize, chunkHeight, pos.x, newY, pos.z)) {
-        if (vel.y < 0) {
-          const blockTop = Math.floor(newY) + 1.01
-          pos.y = blockTop
-          vel.y = 0
-          grounded = true
-        } else {
-          vel.y = 0
-        }
-      } else {
-        pos.y = newY
-        grounded = false
-      }
-
-      const blockBelowY = Math.floor(pos.y - 0.01)
-      if (
-        blockBelowY >= 0 &&
-        isSolid(volume, Math.floor(pos.x), blockBelowY, Math.floor(pos.z), chunkSize, chunkHeight)
-      ) {
+    const newY = pos.y + vel.y
+    if (checkCollision(volume, chunkSize, chunkHeight, pos.x, newY, pos.z)) {
+      if (vel.y < 0) {
+        const blockTop = Math.floor(newY) + 1.01
+        pos.y = blockTop
+        vel.y = 0
         grounded = true
+      } else {
         vel.y = 0
       }
-
-      const breath = Math.sin(performance.now() * 0.001 * BREATH_SPEED) * BREATH_AMPLITUDE
-      camera.position.set(pos.x, pos.y + PLAYER_HEIGHT + breath, pos.z)
+    } else {
+      pos.y = newY
+      grounded = false
     }
+
+    const blockBelowY = Math.floor(pos.y - 0.01)
+    if (
+      blockBelowY >= 0 &&
+      isSolid(volume, Math.floor(pos.x), blockBelowY, Math.floor(pos.z), chunkSize, chunkHeight)
+    ) {
+      grounded = true
+      vel.y = 0
+    }
+
+    const distMoved = Math.hypot(pos.x - lastRebuildX, pos.z - lastRebuildZ)
+    if (!rebuildPending && distMoved >= REBUILD_THRESHOLD) {
+      rebuildPending = true
+      lastRebuildX = pos.x
+      lastRebuildZ = pos.z
+      const cx = pos.x
+      const cy = pos.y
+      const cz = pos.z
+      const schedule = (): void => {
+        chunkWorker.postMessage({
+          volume: volume.slice(),
+          chunkSize,
+          chunkHeight,
+          center: { x: cx, y: cy, z: cz },
+        })
+      }
+      if ('requestIdleCallback' in window) {
+        ;(
+          window as Window & { requestIdleCallback: (cb: () => void) => number }
+        ).requestIdleCallback(schedule, { timeout: 100 })
+      } else {
+        schedule()
+      }
+    }
+
+    const breath = Math.sin(performance.now() * 0.001 * BREATH_SPEED) * BREATH_AMPLITUDE
+    camera.position.set(pos.x, pos.y + PLAYER_HEIGHT + breath, pos.z)
+
     renderer.render(scene, camera)
   }
 

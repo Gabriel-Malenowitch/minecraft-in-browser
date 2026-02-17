@@ -1,13 +1,11 @@
 import * as THREE from 'three'
-import { buildChunkMeshData } from './chunk-mesh-core'
+import { buildChunkMeshDataFromChunks } from './chunk-mesh-core'
 
 export function buildChunkMesh(
-  volume: Uint8Array,
-  chunkSize: number,
-  chunkHeight: number,
+  chunks: Record<string, Uint8Array>,
   center: { x: number; y: number; z: number },
 ): THREE.Mesh {
-  const { positions, normals, colors } = buildChunkMeshData(volume, chunkSize, chunkHeight, center)
+  const { positions, normals, colors } = buildChunkMeshDataFromChunks(chunks, center)
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))

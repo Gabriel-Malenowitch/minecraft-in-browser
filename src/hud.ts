@@ -8,15 +8,15 @@ import { buildAtlasCanvas, TILE_SIZE } from './texture-atlas'
 /* ── Hotbar slot definitions ───────────────────────────────── */
 
 const HOTBAR_BLOCKS: (BlockIdType | null)[] = [
-    BlockId.GRASS_BLOCK,
-    BlockId.DIRT,
-    BlockId.WOOD,
-    BlockId.LEAVES,
-    null,
-    null,
-    null,
-    null,
-    null,
+  BlockId.GRASS_BLOCK,
+  BlockId.DIRT,
+  BlockId.WOOD,
+  BlockId.LEAVES,
+  BlockId.BIRCH_WOOD,
+  BlockId.SPRUCE_WOOD,
+  BlockId.CHERRY_WOOD,
+  BlockId.CHERRY_LEAVES,
+  BlockId.DARK_OAK_WOOD,
 ]
 
 /* ── Public interface ──────────────────────────────────────── */

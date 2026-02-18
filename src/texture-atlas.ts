@@ -12,15 +12,27 @@
  */
 
 export const TILE_SIZE = 16
-export const TILE_COUNT = 6
+export const TILE_COUNT = 18
 
 export const TileId = {
-    DIRT: 0,
-    GRASS_TOP: 1,
-    GRASS_SIDE: 2,
-    WOOD: 3,
-    LEAVES: 4,
-    GRASS_PLANT: 5,
+  DIRT: 0,
+  GRASS_TOP: 1,
+  GRASS_SIDE: 2,
+  WOOD: 3,
+  LEAVES: 4,
+  GRASS_PLANT: 5,
+  BIRCH_WOOD: 6,
+  BIRCH_LEAVES: 7,
+  SPRUCE_WOOD: 8,
+  SPRUCE_LEAVES: 9,
+  JUNGLE_WOOD: 10,
+  JUNGLE_LEAVES: 11,
+  ACACIA_WOOD: 12,
+  ACACIA_LEAVES: 13,
+  DARK_OAK_WOOD: 14,
+  DARK_OAK_LEAVES: 15,
+  CHERRY_WOOD: 16,
+  CHERRY_LEAVES: 17,
 } as const
 
 /* ── Deterministic pseudo-random for texture generation ─── */
@@ -106,17 +118,189 @@ function paintWood(ctx: CanvasRenderingContext2D, ox: number): void {
 }
 
 function paintLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
-    const rng = seededRng(505)
-    for (let y = 0; y < TILE_SIZE; y++) {
-        for (let x = 0; x < TILE_SIZE; x++) {
-            const v = 0.15 + rng() * 0.3
-            const r = Math.floor(v * 0.6 * 255)
-            const g = Math.floor((v + 0.12) * 255)
-            const b = Math.floor(v * 0.5 * 255)
-            ctx.fillStyle = `rgb(${r},${g},${b})`
-            ctx.fillRect(ox + x, y, 1, 1)
-        }
+  const rng = seededRng(505)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.15 + rng() * 0.3
+      const r = Math.floor(v * 0.6 * 255)
+      const g = Math.floor((v + 0.12) * 255)
+      const b = Math.floor(v * 0.5 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
     }
+  }
+}
+
+function paintBirchWood(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(700)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.75 + rng() * 0.15
+      const r = Math.floor(v * 255)
+      const g = Math.floor(v * 0.95 * 255)
+      const b = Math.floor(v * 0.85 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintBirchLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(701)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.2 + rng() * 0.25
+      const r = Math.floor(v * 0.5 * 255)
+      const g = Math.floor((v + 0.25) * 255)
+      const b = Math.floor(v * 0.4 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintSpruceWood(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(702)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const stripe = Math.sin(y * 0.6 + rng() * 0.3) * 0.04
+      const v = 0.2 + stripe + rng() * 0.06
+      const r = Math.floor((v + 0.05) * 255)
+      const g = Math.floor((v * 0.5) * 255)
+      const b = Math.floor((v * 0.3) * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintSpruceLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(703)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.08 + rng() * 0.15
+      const r = Math.floor(v * 0.4 * 255)
+      const g = Math.floor((v + 0.15) * 255)
+      const b = Math.floor(v * 0.35 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintJungleWood(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(704)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const stripe = Math.sin(y * 0.5 + rng() * 0.4) * 0.05
+      const v = 0.35 + stripe + rng() * 0.08
+      const r = Math.floor((v + 0.1) * 255)
+      const g = Math.floor((v * 0.6) * 255)
+      const b = Math.floor((v * 0.25) * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintJungleLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(705)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.12 + rng() * 0.22
+      const r = Math.floor(v * 0.45 * 255)
+      const g = Math.floor((v + 0.2) * 255)
+      const b = Math.floor(v * 0.35 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintAcaciaWood(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(706)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.5 + rng() * 0.2
+      const r = Math.floor((v + 0.15) * 255)
+      const g = Math.floor((v * 0.85) * 255)
+      const b = Math.floor((v * 0.5) * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintAcaciaLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(707)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.15 + rng() * 0.2
+      const r = Math.floor((v + 0.2) * 255)
+      const g = Math.floor((v * 0.7) * 255)
+      const b = Math.floor(v * 0.4 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintDarkOakWood(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(708)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const stripe = Math.sin(y * 0.7 + rng() * 0.4) * 0.05
+      const v = 0.15 + stripe + rng() * 0.06
+      const r = Math.floor((v + 0.05) * 255)
+      const g = Math.floor((v * 0.4) * 255)
+      const b = Math.floor((v * 0.2) * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintDarkOakLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(709)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.08 + rng() * 0.12
+      const r = Math.floor(v * 0.35 * 255)
+      const g = Math.floor((v + 0.12) * 255)
+      const b = Math.floor(v * 0.25 * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintCherryWood(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(710)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const stripe = Math.sin(y * 0.6 + rng() * 0.3) * 0.04
+      const v = 0.55 + stripe + rng() * 0.1
+      const r = Math.floor((v + 0.2) * 255)
+      const g = Math.floor((v * 0.7) * 255)
+      const b = Math.floor((v * 0.75) * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
+}
+
+function paintCherryLeaves(ctx: CanvasRenderingContext2D, ox: number): void {
+  const rng = seededRng(711)
+  for (let y = 0; y < TILE_SIZE; y++) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const v = 0.6 + rng() * 0.25
+      const r = Math.floor((v + 0.3) * 255)
+      const g = Math.floor(v * 0.65 * 255)
+      const b = Math.floor((v + 0.15) * 255)
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(ox + x, y, 1, 1)
+    }
+  }
 }
 
 function paintGrassPlant(ctx: CanvasRenderingContext2D, ox: number): void {
@@ -195,6 +379,18 @@ export function buildAtlasCanvas(): TextureAtlasData {
     paintWood(ctx as CanvasRenderingContext2D, TileId.WOOD * TILE_SIZE)
     paintLeaves(ctx as CanvasRenderingContext2D, TileId.LEAVES * TILE_SIZE)
     paintGrassPlant(ctx as CanvasRenderingContext2D, TileId.GRASS_PLANT * TILE_SIZE)
+    paintBirchWood(ctx as CanvasRenderingContext2D, TileId.BIRCH_WOOD * TILE_SIZE)
+    paintBirchLeaves(ctx as CanvasRenderingContext2D, TileId.BIRCH_LEAVES * TILE_SIZE)
+    paintSpruceWood(ctx as CanvasRenderingContext2D, TileId.SPRUCE_WOOD * TILE_SIZE)
+    paintSpruceLeaves(ctx as CanvasRenderingContext2D, TileId.SPRUCE_LEAVES * TILE_SIZE)
+    paintJungleWood(ctx as CanvasRenderingContext2D, TileId.JUNGLE_WOOD * TILE_SIZE)
+    paintJungleLeaves(ctx as CanvasRenderingContext2D, TileId.JUNGLE_LEAVES * TILE_SIZE)
+    paintAcaciaWood(ctx as CanvasRenderingContext2D, TileId.ACACIA_WOOD * TILE_SIZE)
+    paintAcaciaLeaves(ctx as CanvasRenderingContext2D, TileId.ACACIA_LEAVES * TILE_SIZE)
+    paintDarkOakWood(ctx as CanvasRenderingContext2D, TileId.DARK_OAK_WOOD * TILE_SIZE)
+    paintDarkOakLeaves(ctx as CanvasRenderingContext2D, TileId.DARK_OAK_LEAVES * TILE_SIZE)
+    paintCherryWood(ctx as CanvasRenderingContext2D, TileId.CHERRY_WOOD * TILE_SIZE)
+    paintCherryLeaves(ctx as CanvasRenderingContext2D, TileId.CHERRY_LEAVES * TILE_SIZE)
 
     return { canvas, tileCount: TILE_COUNT, tileSize: TILE_SIZE, width: w, height: h }
 }

@@ -12,6 +12,18 @@ export const BlockId = {
   WOOD: 3,
   LEAVES: 4,
   GRASS: 5,
+  BIRCH_WOOD: 6,
+  BIRCH_LEAVES: 7,
+  SPRUCE_WOOD: 8,
+  SPRUCE_LEAVES: 9,
+  JUNGLE_WOOD: 10,
+  JUNGLE_LEAVES: 11,
+  ACACIA_WOOD: 12,
+  ACACIA_LEAVES: 13,
+  DARK_OAK_WOOD: 14,
+  DARK_OAK_LEAVES: 15,
+  CHERRY_WOOD: 16,
+  CHERRY_LEAVES: 17,
 } as const
 
 export type BlockIdType = (typeof BlockId)[keyof typeof BlockId]
@@ -90,6 +102,66 @@ export const BLOCKS: Record<BlockIdType, BlockDef> = {
       TileId.LEAVES,
       TileId.LEAVES,
     ],
+  },
+  [BlockId.BIRCH_WOOD]: {
+    id: BlockId.BIRCH_WOOD,
+    name: 'birch_wood',
+    faceTiles: [TileId.BIRCH_WOOD, TileId.BIRCH_WOOD, TileId.BIRCH_WOOD, TileId.BIRCH_WOOD, TileId.BIRCH_WOOD, TileId.BIRCH_WOOD],
+  },
+  [BlockId.BIRCH_LEAVES]: {
+    id: BlockId.BIRCH_LEAVES,
+    name: 'birch_leaves',
+    faceTiles: [TileId.BIRCH_LEAVES, TileId.BIRCH_LEAVES, TileId.BIRCH_LEAVES, TileId.BIRCH_LEAVES, TileId.BIRCH_LEAVES, TileId.BIRCH_LEAVES],
+  },
+  [BlockId.SPRUCE_WOOD]: {
+    id: BlockId.SPRUCE_WOOD,
+    name: 'spruce_wood',
+    faceTiles: [TileId.SPRUCE_WOOD, TileId.SPRUCE_WOOD, TileId.SPRUCE_WOOD, TileId.SPRUCE_WOOD, TileId.SPRUCE_WOOD, TileId.SPRUCE_WOOD],
+  },
+  [BlockId.SPRUCE_LEAVES]: {
+    id: BlockId.SPRUCE_LEAVES,
+    name: 'spruce_leaves',
+    faceTiles: [TileId.SPRUCE_LEAVES, TileId.SPRUCE_LEAVES, TileId.SPRUCE_LEAVES, TileId.SPRUCE_LEAVES, TileId.SPRUCE_LEAVES, TileId.SPRUCE_LEAVES],
+  },
+  [BlockId.JUNGLE_WOOD]: {
+    id: BlockId.JUNGLE_WOOD,
+    name: 'jungle_wood',
+    faceTiles: [TileId.JUNGLE_WOOD, TileId.JUNGLE_WOOD, TileId.JUNGLE_WOOD, TileId.JUNGLE_WOOD, TileId.JUNGLE_WOOD, TileId.JUNGLE_WOOD],
+  },
+  [BlockId.JUNGLE_LEAVES]: {
+    id: BlockId.JUNGLE_LEAVES,
+    name: 'jungle_leaves',
+    faceTiles: [TileId.JUNGLE_LEAVES, TileId.JUNGLE_LEAVES, TileId.JUNGLE_LEAVES, TileId.JUNGLE_LEAVES, TileId.JUNGLE_LEAVES, TileId.JUNGLE_LEAVES],
+  },
+  [BlockId.ACACIA_WOOD]: {
+    id: BlockId.ACACIA_WOOD,
+    name: 'acacia_wood',
+    faceTiles: [TileId.ACACIA_WOOD, TileId.ACACIA_WOOD, TileId.ACACIA_WOOD, TileId.ACACIA_WOOD, TileId.ACACIA_WOOD, TileId.ACACIA_WOOD],
+  },
+  [BlockId.ACACIA_LEAVES]: {
+    id: BlockId.ACACIA_LEAVES,
+    name: 'acacia_leaves',
+    faceTiles: [TileId.ACACIA_LEAVES, TileId.ACACIA_LEAVES, TileId.ACACIA_LEAVES, TileId.ACACIA_LEAVES, TileId.ACACIA_LEAVES, TileId.ACACIA_LEAVES],
+  },
+  [BlockId.DARK_OAK_WOOD]: {
+    id: BlockId.DARK_OAK_WOOD,
+    name: 'dark_oak_wood',
+    faceTiles: [TileId.DARK_OAK_WOOD, TileId.DARK_OAK_WOOD, TileId.DARK_OAK_WOOD, TileId.DARK_OAK_WOOD, TileId.DARK_OAK_WOOD, TileId.DARK_OAK_WOOD],
+  },
+  [BlockId.DARK_OAK_LEAVES]: {
+    id: BlockId.DARK_OAK_LEAVES,
+    name: 'dark_oak_leaves',
+    faceTiles: [TileId.DARK_OAK_LEAVES, TileId.DARK_OAK_LEAVES, TileId.DARK_OAK_LEAVES, TileId.DARK_OAK_LEAVES, TileId.DARK_OAK_LEAVES, TileId.DARK_OAK_LEAVES],
+  },
+  [BlockId.CHERRY_WOOD]: {
+    id: BlockId.CHERRY_WOOD,
+    name: 'cherry_wood',
+    faceTiles: [TileId.CHERRY_WOOD, TileId.CHERRY_WOOD, TileId.CHERRY_WOOD, TileId.CHERRY_WOOD, TileId.CHERRY_WOOD, TileId.CHERRY_WOOD],
+  },
+  [BlockId.CHERRY_LEAVES]: {
+    id: BlockId.CHERRY_LEAVES,
+    name: 'cherry_leaves',
+    faceTiles: [TileId.CHERRY_LEAVES, TileId.CHERRY_LEAVES, TileId.CHERRY_LEAVES, TileId.CHERRY_LEAVES, TileId.CHERRY_LEAVES, TileId.CHERRY_LEAVES],
   },
   [BlockId.GRASS]: {
     id: BlockId.GRASS,

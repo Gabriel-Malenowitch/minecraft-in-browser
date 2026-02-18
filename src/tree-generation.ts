@@ -3,7 +3,8 @@ import { BlockId } from './blocks'
 import { DEFAULT_TERRAIN_SEED } from './terrain-params'
 
 export const TREE_CHANCE = 0.07
-const TREE_CLEAR_RADIUS = 4
+const WORLD_TREE_CHANCE = 0.05
+const BASE_CLEAR_RADIUS = 4
 
 function getIndex(x: number, y: number, z: number): number {
   return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
@@ -27,17 +28,106 @@ function random01(h: number): number {
 }
 
 function canPlaceTree(volume: Uint8Array, x: number, y: number, z: number): boolean {
+  if (y < 1) {
+    return false
+  }
   return (
     volume[getIndex(x, y, z)] === BlockId.GRASS_BLOCK &&
+    volume[getIndex(x, y - 1, z)] === BlockId.DIRT &&
     (volume[getIndex(x, y + 1, z)] === BlockId.AIR ||
       volume[getIndex(x, y + 1, z)] === BlockId.GRASS)
   )
 }
 
-function hasClearSpace(volume: Uint8Array, x: number, y: number, z: number): boolean {
-  for (let dx = -TREE_CLEAR_RADIUS; dx <= TREE_CLEAR_RADIUS; dx++) {
-    for (let dz = -TREE_CLEAR_RADIUS; dz <= TREE_CLEAR_RADIUS; dz++) {
-      for (let dy = 1; dy <= 6; dy++) {
+interface TreeType {
+  woodId: number
+  leavesId: number
+  minHeight: number
+  maxHeight: number
+  clearRadius: number
+  /** 2 = dark oak 2x2 trunk */
+  trunkWidth: number
+}
+
+const TREE_TYPES: TreeType[] = [
+  {
+    woodId: BlockId.WOOD,
+    leavesId: BlockId.LEAVES,
+    minHeight: 4,
+    maxHeight: 6,
+    clearRadius: BASE_CLEAR_RADIUS,
+    trunkWidth: 1,
+  },
+  {
+    woodId: BlockId.BIRCH_WOOD,
+    leavesId: BlockId.BIRCH_LEAVES,
+    minHeight: 5,
+    maxHeight: 7,
+    clearRadius: BASE_CLEAR_RADIUS,
+    trunkWidth: 1,
+  },
+  {
+    woodId: BlockId.SPRUCE_WOOD,
+    leavesId: BlockId.SPRUCE_LEAVES,
+    minHeight: 6,
+    maxHeight: 9,
+    clearRadius: BASE_CLEAR_RADIUS,
+    trunkWidth: 1,
+  },
+  {
+    woodId: BlockId.JUNGLE_WOOD,
+    leavesId: BlockId.JUNGLE_LEAVES,
+    minHeight: 8,
+    maxHeight: 11,
+    clearRadius: BASE_CLEAR_RADIUS + 1,
+    trunkWidth: 1,
+  },
+  {
+    woodId: BlockId.ACACIA_WOOD,
+    leavesId: BlockId.ACACIA_LEAVES,
+    minHeight: 6,
+    maxHeight: 8,
+    clearRadius: BASE_CLEAR_RADIUS,
+    trunkWidth: 1,
+  },
+  {
+    woodId: BlockId.DARK_OAK_WOOD,
+    leavesId: BlockId.DARK_OAK_LEAVES,
+    minHeight: 5,
+    maxHeight: 6,
+    clearRadius: 6,
+    trunkWidth: 2,
+  },
+  {
+    woodId: BlockId.CHERRY_WOOD,
+    leavesId: BlockId.CHERRY_LEAVES,
+    minHeight: 5,
+    maxHeight: 7,
+    clearRadius: BASE_CLEAR_RADIUS,
+    trunkWidth: 1,
+  },
+  {
+    woodId: BlockId.SPRUCE_WOOD,
+    leavesId: BlockId.SPRUCE_LEAVES,
+    minHeight: 20,
+    maxHeight: 26,
+    clearRadius: 7,
+    trunkWidth: 3,
+  },
+]
+
+function hasClearSpace(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  tree: TreeType,
+): boolean {
+  const r = tree.clearRadius
+  const maxH = tree.maxHeight + 6
+  for (let dx = -r; dx <= r + tree.trunkWidth - 1; dx++) {
+    for (let dz = -r; dz <= r + tree.trunkWidth - 1; dz++) {
+      for (let dy = 1; dy <= maxH; dy++) {
         const bx = x + dx
         const bz = z + dz
         const by = y + dy
@@ -54,9 +144,25 @@ function hasClearSpace(volume: Uint8Array, x: number, y: number, z: number): boo
   return true
 }
 
-function placeTrunk(volume: Uint8Array, x: number, y: number, z: number, height: number): void {
+function placeTrunk(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  height: number,
+  woodId: number,
+  width: number,
+): void {
   for (let dy = 1; dy <= height; dy++) {
-    volume[getIndex(x, y + dy, z)] = BlockId.WOOD
+    for (let dw = 0; dw < width; dw++) {
+      for (let dz = 0; dz < width; dz++) {
+        const bx = x + dw
+        const bz = z + dz
+        if (bx >= 0 && bx < CHUNK_SIZE && bz >= 0 && bz < CHUNK_SIZE) {
+          volume[getIndex(bx, y + dy, bz)] = woodId
+        }
+      }
+    }
   }
 }
 
@@ -68,6 +174,9 @@ function setLeaf(
   dx: number,
   dy: number,
   dz: number,
+  leavesId: number,
+  trunkHeight: number,
+  trunkWidth: number,
 ): void {
   const bx = x + dx
   const bz = z + dz
@@ -75,60 +184,164 @@ function setLeaf(
   if (bx < 0 || bx >= CHUNK_SIZE || bz < 0 || bz >= CHUNK_SIZE || by >= CHUNK_HEIGHT) {
     return
   }
-  if (dx === 0 && dz === 0 && dy <= 4) {
+  if (dx >= 0 && dx < trunkWidth && dz >= 0 && dz < trunkWidth && dy >= 1 && dy <= trunkHeight) {
     return
   }
-  volume[getIndex(bx, by, bz)] = BlockId.LEAVES
+  volume[getIndex(bx, by, bz)] = leavesId
 }
 
-function placeLeavesClassic(volume: Uint8Array, x: number, y: number, z: number): void {
+function placeLeavesOak(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
   for (let dy = 3; dy <= 6; dy++) {
     const r = dy <= 5 ? 2 : 0
     for (let dx = -r; dx <= r; dx++) {
       for (let dz = -r; dz <= r; dz++) {
-        setLeaf(volume, x, y, z, dx, dy, dz)
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
       }
     }
   }
 }
 
-function placeLeavesRound(volume: Uint8Array, x: number, y: number, z: number): void {
-  for (let dy = 3; dy <= 6; dy++) {
+function placeLeavesBirch(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  for (let dy = 4; dy <= 7; dy++) {
+    const r = dy <= 6 ? 1 : 0
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
+      }
+    }
+  }
+}
+
+function placeLeavesSpruce(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  for (let dy = 2; dy <= 8; dy++) {
+    const layer = dy - 2
+    const r = layer <= 2 ? 2 : layer <= 5 ? 1 : 0
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
+      }
+    }
+  }
+}
+
+function placeLeavesJungle(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  for (let dy = 6; dy <= 12; dy++) {
+    const r = dy <= 8 ? 3 : dy <= 10 ? 2 : 1
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
+      }
+    }
+  }
+}
+
+function placeLeavesAcacia(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  for (let dy = 5; dy <= 8; dy++) {
+    const r = dy <= 6 ? 2 : 1
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
+      }
+    }
+  }
+}
+
+function placeLeavesDarkOak(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  for (let dy = 3; dy <= 7; dy++) {
+    const r = dy <= 5 ? 3 : dy === 6 ? 2 : 1
+    for (let dx = -r; dx <= r + 1; dx++) {
+      for (let dz = -r; dz <= r + 1; dz++) {
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
+      }
+    }
+  }
+}
+
+function placeLeavesCherry(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  for (let dy = 3; dy <= 7; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
       for (let dz = -2; dz <= 2; dz++) {
-        const dist = dx * dx + dz * dz + (dy - 4.5) * (dy - 4.5)
-        if (dist <= 6 || (dy === 6 && dx === 0 && dz === 0)) {
-          setLeaf(volume, x, y, z, dx, dy, dz)
+        const dist = dx * dx + dz * dz + (dy - 5) * (dy - 5)
+        if (dist <= 8 || (dy === 7 && Math.abs(dx) <= 1 && Math.abs(dz) <= 1)) {
+          setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
         }
       }
     }
   }
 }
 
-function placeLeavesPointy(volume: Uint8Array, x: number, y: number, z: number): void {
-  for (let dy = 3; dy <= 6; dy++) {
-    const r = dy <= 4 ? 2 : dy === 5 ? 1 : 0
-    for (let dx = -r; dx <= r; dx++) {
-      for (let dz = -r; dz <= r; dz++) {
-        setLeaf(volume, x, y, z, dx, dy, dz)
-      }
-    }
-  }
-}
-
-function placeLeavesBushy(volume: Uint8Array, x: number, y: number, z: number, h: number): void {
-  for (let dy = 2; dy <= 6; dy++) {
-    const r = dy <= 3 ? 1 : dy <= 5 ? 2 : 1
-    for (let dx = -r; dx <= r; dx++) {
-      for (let dz = -r; dz <= r; dz++) {
-        if (dx === 0 && dz === 0 && dy <= 4) {
-          continue
-        }
-        const n = (h + dx * 7 + dz * 13 + dy * 31) % 3
-        if (n === 0) {
-          continue
-        }
-        setLeaf(volume, x, y, z, dx, dy, dz)
+function placeLeavesWorldTree(
+  volume: Uint8Array,
+  x: number,
+  y: number,
+  z: number,
+  leavesId: number,
+  trunkH: number,
+  trunkW: number,
+): void {
+  const base = trunkH - 8
+  for (let dy = base; dy <= trunkH + 6; dy++) {
+    const layer = dy - base
+    const r = layer <= 4 ? 6 : layer <= 8 ? 5 : layer <= 12 ? 4 : layer <= 16 ? 3 : 2
+    for (let dx = -r; dx <= r + trunkW - 1; dx++) {
+      for (let dz = -r; dz <= r + trunkW - 1; dz++) {
+        setLeaf(volume, x, y, z, dx, dy, dz, leavesId, trunkH, trunkW)
       }
     }
   }
@@ -140,32 +353,62 @@ export function placeTrees(
   offsetZ: number,
   seed = DEFAULT_TERRAIN_SEED,
 ): void {
-  for (let x = TREE_CLEAR_RADIUS; x < CHUNK_SIZE - TREE_CLEAR_RADIUS; x++) {
-    for (let z = TREE_CLEAR_RADIUS; z < CHUNK_SIZE - TREE_CLEAR_RADIUS; z++) {
-      for (let y = 0; y < CHUNK_HEIGHT - 7; y++) {
+  for (let x = BASE_CLEAR_RADIUS; x < CHUNK_SIZE - BASE_CLEAR_RADIUS; x++) {
+    for (let z = BASE_CLEAR_RADIUS; z < CHUNK_SIZE - BASE_CLEAR_RADIUS; z++) {
+      for (let y = 0; y < CHUNK_HEIGHT - 12; y++) {
         if (!canPlaceTree(volume, x, y, z)) {
-          continue
-        }
-        if (!hasClearSpace(volume, x, y, z)) {
           continue
         }
 
         const h = hash(x, y, z, offsetX, offsetZ, seed)
-        if (random01(h) >= TREE_CHANCE) {
+        const isWorldTree = random01(h) < WORLD_TREE_CHANCE
+        const typeIdx = isWorldTree ? TREE_TYPES.length - 1 : (h >>> 8) % (TREE_TYPES.length - 1)
+        const tree = TREE_TYPES[typeIdx]
+
+        if (!isWorldTree && random01(h >>> 4) >= TREE_CHANCE) {
           continue
         }
 
-        placeTrunk(volume, x, y, z, 4)
+        if (isWorldTree && (x < 8 || x > 23 || z < 8 || z > 23)) {
+          continue
+        }
 
-        const shape = (h >>> 4) % 4
-        if (shape === 0) {
-          placeLeavesClassic(volume, x, y, z)
-        } else if (shape === 1) {
-          placeLeavesRound(volume, x, y, z)
-        } else if (shape === 2) {
-          placeLeavesPointy(volume, x, y, z)
-        } else {
-          placeLeavesBushy(volume, x, y, z, h)
+        if (!hasClearSpace(volume, x, y, z, tree)) {
+          continue
+        }
+
+        const heightRange = tree.maxHeight - tree.minHeight + 1
+        const height = tree.minHeight + ((h >>> 16) % heightRange)
+
+        placeTrunk(volume, x, y, z, height, tree.woodId, tree.trunkWidth)
+
+        switch (typeIdx) {
+          case 0:
+            placeLeavesOak(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 1:
+            placeLeavesBirch(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 2:
+            placeLeavesSpruce(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 3:
+            placeLeavesJungle(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 4:
+            placeLeavesAcacia(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 5:
+            placeLeavesDarkOak(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 6:
+            placeLeavesCherry(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          case 7:
+            placeLeavesWorldTree(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
+            break
+          default:
+            placeLeavesOak(volume, x, y, z, tree.leavesId, height, tree.trunkWidth)
         }
       }
     }

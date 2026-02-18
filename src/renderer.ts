@@ -414,6 +414,52 @@ export function createRenderer(
   cloudsGroup.renderOrder = 1
   scene.add(cloudsGroup)
 
+  /* ── Falling leaves: geradas em volta do player, depois independentes ─ */
+  const LEAF_COUNT = 350
+  const LEAF_SPAWN_RADIUS = 45
+  const LEAF_SPAWN_HEIGHT = 35
+  const LEAF_FALL_SPEED = 0.018
+  const LEAF_DRIFT = 0.012
+  const leafSpawnCenter = { x: pos.x, y: pos.y, z: pos.z }
+  const leafPositions = new Float32Array(LEAF_COUNT * 3)
+  const leafVelocities = new Float32Array(LEAF_COUNT * 3)
+  const leafColors = new Float32Array(LEAF_COUNT * 3)
+  const LEAF_COLORS = [
+    [0.29, 0.49, 0.25],
+    [0.49, 0.72, 0.36],
+    [0.18, 0.35, 0.15],
+    [0.97, 0.71, 0.77],
+    [0.35, 0.55, 0.3],
+  ]
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    leafPositions[i * 3] = leafSpawnCenter.x + (Math.random() - 0.5) * 2 * LEAF_SPAWN_RADIUS
+    leafPositions[i * 3 + 1] = leafSpawnCenter.y + LEAF_SPAWN_HEIGHT + Math.random() * 15
+    leafPositions[i * 3 + 2] = leafSpawnCenter.z + (Math.random() - 0.5) * 2 * LEAF_SPAWN_RADIUS
+    leafVelocities[i * 3] = (Math.random() - 0.5) * LEAF_DRIFT
+    leafVelocities[i * 3 + 1] = -LEAF_FALL_SPEED * (0.7 + Math.random() * 0.6)
+    leafVelocities[i * 3 + 2] = (Math.random() - 0.5) * LEAF_DRIFT
+    const col = LEAF_COLORS[i % LEAF_COLORS.length]
+    leafColors[i * 3] = col[0]
+    leafColors[i * 3 + 1] = col[1]
+    leafColors[i * 3 + 2] = col[2]
+  }
+  const leafGeometry = new THREE.BufferGeometry()
+  leafGeometry.setAttribute('position', new THREE.BufferAttribute(leafPositions, 3))
+  leafGeometry.setAttribute('color', new THREE.BufferAttribute(leafColors, 3))
+  const leafMaterial = new THREE.PointsMaterial({
+    size: 0.25,
+    transparent: true,
+    opacity: 0.85,
+    vertexColors: true,
+    depthWrite: true,
+    depthTest: true,
+    sizeAttenuation: true,
+  })
+  const leavesGroup = new THREE.Points(leafGeometry, leafMaterial)
+  leavesGroup.frustumCulled = false
+  leavesGroup.renderOrder = 0
+  scene.add(leavesGroup)
+
   sunLight.target.position.set(0, 0, 0)
   scene.add(sunLight.target)
 
@@ -675,6 +721,28 @@ export function createRenderer(
       }
       const cloud = cloudsGroup.children[i] as THREE.Group
       cloud.position.set(cloudOffsets[i].x, 0, cloudOffsets[i].z)
+    }
+
+    const posAttr = leavesGroup.geometry.attributes.position
+    if (posAttr) {
+      const arr = posAttr.array as Float32Array
+      const t = performance.now() * 0.001
+      const sway = Math.sin(t * 0.7) * 0.008
+      const windX = CLOUD_WIND_SPEED * 0.35 + sway
+      const respawnY = leafSpawnCenter.y - 8
+      const spawnY = leafSpawnCenter.y + LEAF_SPAWN_HEIGHT
+      for (let i = 0; i < LEAF_COUNT; i++) {
+        const ix = i * 3
+        arr[ix] += leafVelocities[ix] + windX
+        arr[ix + 1] += leafVelocities[ix + 1]
+        arr[ix + 2] += leafVelocities[ix + 2] + Math.sin(t * 0.5 + i * 0.1) * 0.005
+        if (arr[ix + 1] < respawnY) {
+          arr[ix] = leafSpawnCenter.x + (Math.random() - 0.5) * 2 * LEAF_SPAWN_RADIUS
+          arr[ix + 1] = spawnY + Math.random() * 15
+          arr[ix + 2] = leafSpawnCenter.z + (Math.random() - 0.5) * 2 * LEAF_SPAWN_RADIUS
+        }
+      }
+      posAttr.needsUpdate = true
     }
 
     // ── HUD updates ──

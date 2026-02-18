@@ -7,6 +7,7 @@ export interface WorldInfos {
   maxCX?: number
   minCZ?: number
   maxCZ?: number
+  seed?: number
   volume?: string
   chunkSize?: number
   chunkHeight?: number
@@ -65,6 +66,8 @@ function unpackVolume(base64: string, chunkSize: number, chunkHeight: number): U
   return volume
 }
 
+const DEFAULT_SEED = 12345
+
 export const getWorldData = ():
   | {
       chunks: Record<string, Uint8Array>
@@ -72,6 +75,7 @@ export const getWorldData = ():
       maxCX: number
       minCZ: number
       maxCZ: number
+      seed: number
     }
   | undefined => {
   const memory = getMemory()
@@ -101,6 +105,7 @@ export const getWorldData = ():
       maxCX: info.maxCX,
       minCZ: info.minCZ,
       maxCZ: info.maxCZ,
+      seed: (info.seed as number) ?? DEFAULT_SEED,
     }
   }
 
@@ -137,6 +142,7 @@ export const getWorldData = ():
       maxCX: numChunks - 1,
       minCZ: 0,
       maxCZ: numChunks - 1,
+      seed: (info.seed as number) ?? DEFAULT_SEED,
     }
   }
   return undefined
@@ -148,6 +154,7 @@ export const saveWorldChunks = (
   maxCX: number,
   minCZ: number,
   maxCZ: number,
+  seed?: number,
 ): void => {
   const packed: Record<string, string> = {}
   for (const [k, v] of Object.entries(chunks)) {
@@ -155,7 +162,7 @@ export const saveWorldChunks = (
   }
   const memory = getMemory() ?? {}
   const worldName = Object.keys(memory)[0] ?? DEFAULT_WORLD_NAME
-  memory[worldName] = {
+  const next: WorldInfos = {
     ...memory[worldName],
     chunks: packed,
     minCX,
@@ -163,6 +170,10 @@ export const saveWorldChunks = (
     minCZ,
     maxCZ,
   }
+  if (seed != null) {
+    next.seed = seed
+  }
+  memory[worldName] = next
   setMemory(memory)
 }
 

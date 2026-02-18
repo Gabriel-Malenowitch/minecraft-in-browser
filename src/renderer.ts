@@ -96,6 +96,7 @@ export function createRenderer(
   maxCX: number,
   minCZ: number,
   maxCZ: number,
+  seed: number,
 ): RendererContext {
   const scene = new THREE.Scene()
   const skyColor = new THREE.Color(SKY_DAY)
@@ -594,6 +595,7 @@ export function createRenderer(
         maxCX: bounds.maxCX,
         minCZ: bounds.minCZ,
         maxCZ: bounds.maxCZ,
+        seed,
       })
     }
 

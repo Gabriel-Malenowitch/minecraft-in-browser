@@ -1,6 +1,6 @@
 import { CHUNK_SIZE, CHUNK_HEIGHT } from './world-types'
 import { BlockId } from './blocks'
-import { TERRAIN_SEED } from './terrain-params'
+import { DEFAULT_TERRAIN_SEED } from './terrain-params'
 
 export const TREE_CHANCE = 0.07
 const TREE_CLEAR_RADIUS = 4
@@ -9,8 +9,15 @@ function getIndex(x: number, y: number, z: number): number {
   return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
 }
 
-function hash(x: number, y: number, z: number, offsetX: number, offsetZ: number): number {
-  let h = (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + TERRAIN_SEED
+function hash(
+  x: number,
+  y: number,
+  z: number,
+  offsetX: number,
+  offsetZ: number,
+  seed: number,
+): number {
+  let h = (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + seed
   h = Math.imul(h ^ (h >>> 13), 1274126177)
   return (h ^ (h >>> 16)) >>> 0
 }
@@ -127,7 +134,12 @@ function placeLeavesBushy(volume: Uint8Array, x: number, y: number, z: number, h
   }
 }
 
-export function placeTrees(volume: Uint8Array, offsetX: number, offsetZ: number): void {
+export function placeTrees(
+  volume: Uint8Array,
+  offsetX: number,
+  offsetZ: number,
+  seed = DEFAULT_TERRAIN_SEED,
+): void {
   for (let x = TREE_CLEAR_RADIUS; x < CHUNK_SIZE - TREE_CLEAR_RADIUS; x++) {
     for (let z = TREE_CLEAR_RADIUS; z < CHUNK_SIZE - TREE_CLEAR_RADIUS; z++) {
       for (let y = 0; y < CHUNK_HEIGHT - 7; y++) {
@@ -138,7 +150,7 @@ export function placeTrees(volume: Uint8Array, offsetX: number, offsetZ: number)
           continue
         }
 
-        const h = hash(x, y, z, offsetX, offsetZ)
+        const h = hash(x, y, z, offsetX, offsetZ, seed)
         if (random01(h) >= TREE_CHANCE) {
           continue
         }

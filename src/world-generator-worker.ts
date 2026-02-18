@@ -5,7 +5,7 @@ import {
   TERRAIN_AMPLITUDE,
   TERRAIN_BASE_HEIGHT,
   TERRAIN_HEIGHT_FACTOR,
-  TERRAIN_SEED,
+  DEFAULT_TERRAIN_SEED,
   createSeededRandom,
 } from './terrain-params'
 import { BlockId } from './blocks'
@@ -22,6 +22,7 @@ function generateChunk(
   noise2D: (x: number, y: number) => number,
   offsetX: number,
   offsetZ: number,
+  seed: number,
 ): Uint8Array {
   const volume = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
 
@@ -52,7 +53,7 @@ function generateChunk(
         const idx = getIndex(x, y, z)
         if (volume[idx] === BlockId.GRASS_BLOCK && volume[getIndex(x, y + 1, z)] === BlockId.AIR) {
           let h =
-            (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + TERRAIN_SEED
+            (offsetX + x) * 374761393 + (offsetZ + z) * 668265263 + y * 2147483647 + seed
           h = Math.imul(h ^ (h >>> 13), 1274126177)
           h = h ^ (h >>> 16)
           if (((h >>> 0) % 1000) / 1000 < GRASS_CHANCE) {
@@ -63,7 +64,7 @@ function generateChunk(
     }
   }
 
-  placeTrees(volume, offsetX, offsetZ)
+  placeTrees(volume, offsetX, offsetZ, seed)
 
   return volume
 }
@@ -76,10 +77,11 @@ self.onmessage = (
     maxCX: number
     minCZ: number
     maxCZ: number
+    seed?: number
   }>,
 ) => {
-  const { playerX, playerZ, minCX, maxCX, minCZ, maxCZ } = e.data
-  const noise2D = createNoise2D(createSeededRandom(TERRAIN_SEED))
+  const { playerX, playerZ, minCX, maxCX, minCZ, maxCZ, seed = DEFAULT_TERRAIN_SEED } = e.data
+  const noise2D = createNoise2D(createSeededRandom(seed))
   const EXTEND = 32
   const newChunks: Record<string, string> = {}
 
@@ -119,7 +121,7 @@ self.onmessage = (
     const [cx, cz] = key.split('_').map(Number)
     const offsetX = cx * CHUNK_SIZE
     const offsetZ = cz * CHUNK_SIZE
-    const volume = generateChunk(noise2D, offsetX, offsetZ)
+    const volume = generateChunk(noise2D, offsetX, offsetZ, seed)
     newChunks[key] = packChunk(volume)
   }
 

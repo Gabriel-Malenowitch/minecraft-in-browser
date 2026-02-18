@@ -347,14 +347,27 @@ function placeLeavesWorldTree(
   }
 }
 
+const SPAWN_CLEAR_RADIUS = 8
+
 export function placeTrees(
   volume: Uint8Array,
   offsetX: number,
   offsetZ: number,
   seed = DEFAULT_TERRAIN_SEED,
+  spawnX?: number,
+  spawnZ?: number,
 ): void {
   for (let x = BASE_CLEAR_RADIUS; x < CHUNK_SIZE - BASE_CLEAR_RADIUS; x++) {
     for (let z = BASE_CLEAR_RADIUS; z < CHUNK_SIZE - BASE_CLEAR_RADIUS; z++) {
+      const worldX = offsetX + x
+      const worldZ = offsetZ + z
+      if (
+        spawnX != null &&
+        spawnZ != null &&
+        Math.hypot(worldX - spawnX, worldZ - spawnZ) < SPAWN_CLEAR_RADIUS
+      ) {
+        continue
+      }
       for (let y = 0; y < CHUNK_HEIGHT - 12; y++) {
         if (!canPlaceTree(volume, x, y, z)) {
           continue

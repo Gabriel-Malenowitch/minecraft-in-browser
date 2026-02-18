@@ -19,7 +19,13 @@ function getIndex(x: number, y: number, z: number): number {
   return x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
 }
 
-export function generateChunk(offsetX = 0, offsetZ = 0, seed = DEFAULT_TERRAIN_SEED): Uint8Array {
+export function generateChunk(
+  offsetX = 0,
+  offsetZ = 0,
+  seed = DEFAULT_TERRAIN_SEED,
+  spawnX?: number,
+  spawnZ?: number,
+): Uint8Array {
   const volume = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE)
   const noise2D = createNoise2D(createSeededRandom(seed))
 
@@ -62,7 +68,7 @@ export function generateChunk(offsetX = 0, offsetZ = 0, seed = DEFAULT_TERRAIN_S
     }
   }
 
-  placeTrees(volume, offsetX, offsetZ, seed)
+  placeTrees(volume, offsetX, offsetZ, seed, spawnX, spawnZ)
 
   return volume
 }

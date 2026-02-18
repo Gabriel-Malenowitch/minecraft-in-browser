@@ -8,6 +8,7 @@ import {
   getSubChunkRange,
   subChunkKey,
   SUB_CHUNK_SIZE,
+  RENDER_DISTANCE,
 } from './chunk-mesh-core'
 import { getBlock, setBlock, chunkKey, CHUNK_SIZE, CHUNK_HEIGHT } from './world-types'
 import { isSolid, BlockId, type BlockIdType } from './blocks'
@@ -17,6 +18,8 @@ import { createHUD } from './hud'
 import { createBlockHighlight } from './block-highlight'
 import { createPlayerHand } from './player-hand'
 import { createMobileControls } from './mobile-controls'
+import { createOutdoorMesh } from './outdoor-billboard'
+import type { OutdoorPosition } from './outdoor'
 
 const worldGenWorker = new Worker(new URL('./world-generator-worker.ts', import.meta.url), {
   type: 'module',
@@ -28,6 +31,7 @@ export interface RendererContext {
   controls: PointerLockControls
   renderer: THREE.WebGLRenderer
   animate: () => void
+  dispose: () => void
 }
 
 const MOVE_SPEED = 0.12
@@ -97,6 +101,8 @@ export function createRenderer(
   minCZ: number,
   maxCZ: number,
   seed: number,
+  outdoorPositions: OutdoorPosition[],
+  outdoorMd: string,
 ): RendererContext {
   const scene = new THREE.Scene()
   const skyColor = new THREE.Color(SKY_DAY)
@@ -131,9 +137,15 @@ export function createRenderer(
 
   const terrainGroup = new THREE.Group()
   const grassGroup = new THREE.Group()
+  const outdoorsGroup = new THREE.Group()
   scene.add(terrainGroup)
   scene.add(grassGroup)
+  scene.add(outdoorsGroup)
   const subChunkMeshes = new Map<string, ChunkMeshes>()
+
+  for (const pos of outdoorPositions) {
+    createOutdoorMesh(outdoorMd, pos).then((group) => outdoorsGroup.add(group))
+  }
 
   const center = (): { x: number; y: number; z: number } => ({
     x: pos.x,
@@ -532,7 +544,9 @@ export function createRenderer(
     renderer.setSize(window.innerWidth, window.innerHeight)
   })
 
+  let running = true
   const animate = (): void => {
+    if (!running) return
     requestAnimationFrame(animate)
     controls.getDirection(dir)
     dir.y = 0
@@ -745,6 +759,16 @@ export function createRenderer(
       posAttr.needsUpdate = true
     }
 
+    // ── Outdoor visibility (dentro do limite de renderização) ──
+    const maxDistSq = RENDER_DISTANCE * RENDER_DISTANCE
+    const outdoorPos = new THREE.Vector3()
+    for (const child of outdoorsGroup.children) {
+      child.getWorldPosition(outdoorPos)
+      const dx = outdoorPos.x - pos.x
+      const dz = outdoorPos.z - pos.z
+      child.visible = dx * dx + dz * dz <= maxDistSq
+    }
+
     // ── HUD updates ──
     blockHighlight.update(camera, worldChunks)
     playerHand.update(hud.getSelectedBlockId(), performance.now())
@@ -752,5 +776,11 @@ export function createRenderer(
     renderer.render(scene, camera)
   }
 
-  return { scene, camera, controls, renderer, animate }
+  const dispose = (): void => {
+    running = false
+    hud.el.remove()
+    renderer.dispose()
+  }
+
+  return { scene, camera, controls, renderer, animate, dispose }
 }

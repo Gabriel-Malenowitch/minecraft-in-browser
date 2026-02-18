@@ -5,8 +5,10 @@ import { RENDER_DISTANCE } from './chunk-mesh-core'
  * Edite o `md` abaixo com seu currículo em Markdown.
  */
 
+const avatarUrl = `${import.meta.env.BASE_URL}avatar.png`
+
 export const md = `
-![Gabriel](/avatar.png)
+![Gabriel](${avatarUrl})
 
 # Gabriel Botelho Malenowitch
 
@@ -71,7 +73,7 @@ export function getOutdoorPositions(
     positions.push({ x: inFrontX + 0.5, y: gy, z: inFrontZ + 0.5, facing: 0 })
   }
 
-  const RANDOM_COUNT = 3
+  const RANDOM_COUNT = 1
   const maxDistSq = RENDER_DISTANCE * RENDER_DISTANCE
   for (let i = 0; i < RANDOM_COUNT; i++) {
     let attempts = 0
